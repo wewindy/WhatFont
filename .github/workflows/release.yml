@@ -1,0 +1,85 @@
+name: Release portable ZIP
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and release win-x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out tag
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Tag must use a version such as v1.2.3."
+          }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Publish NativeAOT package
+        shell: pwsh
+        run: |
+          dotnet publish WhatFont/WhatFont.csproj `
+            -c Release `
+            -r win-x64 `
+            -p:PublishAot=true `
+            -p:Version=$env:RELEASE_VERSION
+
+      - name: Verify portable ZIP
+        shell: pwsh
+        run: |
+          $package = "WhatFont/Publish/WhatFont-$env:RELEASE_VERSION-win-x64-portable.zip"
+          if (-not (Test-Path -LiteralPath $package)) {
+            throw "Package was not generated: $package"
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $package))
+          try {
+            $actual = @($archive.Entries | ForEach-Object FullName | Sort-Object)
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          $expected = @(
+            'WhatFont.exe'
+            'av_libglesv2.dll'
+            'libHarfBuzzSharp.dll'
+            'libSkiaSharp.dll'
+          ) | Sort-Object
+
+          if (Compare-Object $expected $actual) {
+            throw "Portable ZIP contents do not match the expected runtime files."
+          }
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $package = "WhatFont/Publish/WhatFont-$env:RELEASE_VERSION-win-x64-portable.zip"
+          gh release create "${{ github.ref_name }}" $package `
+            --repo "${{ github.repository }}" `
+            --title "WhatFont ${{ github.ref_name }}" `
+            --generate-notes `
+            --verify-tag

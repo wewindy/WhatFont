@@ -246,6 +246,14 @@ VS Code 的 `editor.fontFamily`、`terminal.integrated.fontFamily` 等设置通�
 
 **处理**：图标路径使用 `StrokeJoin="Round"`，并保留 `using Avalonia.Input.Platform;`。复制按钮另外设置 `AutomationProperties.Name`，确保 UI 自动化和辅助工具能区分 Family 与 PostScript 操作。
 
+### 25. tag 自动发布必须让工作流存在于 tag 指向的提交中
+
+**风险**：先给旧提交打 tag、再补 GitHub Actions 文件时，tag push 不会运行新工作流；Linux runner 也无法完成 Windows NativeAOT 链接。工作流若没有 `contents: write` 权限，则能构建但无法创建 Release。
+
+**处理**：先提交并推送 `.github/workflows/release.yml`，再给该 HEAD 创建 `v<版本>` tag。工作流使用 `windows-latest`、.NET 10 和仓库内置 `GITHUB_TOKEN`，从 tag 提取 `Version`，验证 ZIP 只包含 4 个运行文件后执行 `gh release create`。
+
+tag 采用 `v1.2.3` 形式；生成的 Release 标题为 `WhatFont v1.2.3`，附件名为 `WhatFont-1.2.3-win-x64-portable.zip`。
+
 ## 已完成验收
 
 - [x] `dotnet build`：0 warning、0 error
@@ -260,6 +268,7 @@ VS Code 的 `editor.fontFamily`、`terminal.integrated.fontFamily` 等设置通�
 - [x] Debug 和 NativeAOT exe 均包含透明背景纯黑 `F` 图标；运行窗口大小图标句柄有效
 - [x] NativeAOT 实际启动并响应，发布目录 4 个文件、0 个 PDB
 - [x] 发布后在 `WhatFont\Publish\` 自动生成 `WhatFont-<版本>-<平台>-portable.zip`
+- [x] 推送 `v<版本>` tag 后由 GitHub Actions 自动创建 Release 并上传 ZIP
 - [x] `dumpbin /dependents` 检查：静态依赖均为 Windows 系统 DLL；随包的 3 个原生 DLL 已保留
 
 ## 待办与剩余风险

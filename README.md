@@ -59,6 +59,17 @@ NativeAOT 不会把 Avalonia/Skia 的原生库合并进 exe；项目会在发布
 
 默认版本为 `1.0.0`。`WhatFont\Publish\` 已加入 `.gitignore`；ZIP 根目录直接包含上述 4 个运行文件，用户解压后运行 `WhatFont.exe`。
 
+## GitHub Release
+
+推送 `v<版本>` tag 会触发 [release.yml](.github/workflows/release.yml)，在 GitHub 的 Windows runner 上执行 NativeAOT 发布，并把 portable ZIP 上传到同名 Release：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+工作流会把 tag 中去掉前缀 `v` 的部分传给 `Version`，因此 `v1.2.3` 会生成 `WhatFont-1.2.3-win-x64-portable.zip`。创建 tag 前应先更新 `WhatFont.csproj` 中的默认版本，并确保 tag 指向包含工作流文件的提交。
+
 ## 项目结构
 
 ```
