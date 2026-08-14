@@ -1,0 +1,5 @@
+**/bin/
+**/obj/
+WhatFont/Publish/
+.vs/
+*.user
